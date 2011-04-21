@@ -1,0 +1,6 @@
+syntax: glob
+local_settings.py
+*.pyc
+*/*.pyc
+*.orig
+#*#

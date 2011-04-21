@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8'?>
+<songs>
+  {% for song in songs %}
+  <song>
+    <title>
+      {{ song.title|safe }}
+    </title>
+    <artist>
+      {{ song.artist|safe }}
+    </artist>
+    <date>
+      {{ song.date|date:"F d, Y" }}
+    </date>
+    <lyrics>
+      {{ song.lyrics }}
+    </lyrics>
+  </song>
+  {% endfor %}
+</songs>
