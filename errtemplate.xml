@@ -2,6 +2,9 @@
 <songs>
   {% for song in songs %}
   <song>
+    <songnum>
+      {{ song.songnum }}
+    <songnum>
     <title>
       {{ song.title|safe }}
     </title>
