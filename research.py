@@ -1,13 +1,19 @@
+# Miscellaneous functions used to search collect lyrics for all Billboard
+# Hot 100 number one songs from 1959 - 2011
+# Lyric data scraped from lyricsfly.com where available
+
 from django.conf import settings
 from django.template import Template, Context
-from gdutils.utils import post, get
+from gdutils.scrape import post, get
 
-import BeautifulSoup as BS
+import BeautifulSoup as BS # next time, just use html5lib from the start =/
 import html5lib as hl
-import datetime
+
 import codecs
-import time
+import datetime
+import re
 import sys
+import time
 import urllib, urllib2
 
 
@@ -19,9 +25,11 @@ SEARCH_URL = 'http://lyricsfly.com/search/search.php'
 RESULT_URL = 'http://lyricsfly.com/search/'
 ERR_TEMPLATE = 'errtemplate.xml'
 ERR_FILE = '/home/gabe/python/selfishmusic/errors.xml'
+DATA_PATH = '/home/gabe/data/music/'
 
 
 def make_urls():
+    """generate the wikipedia urls for the pages of lists of number one singles from 1959 - 2011"""
     urlfile = open('/home/gabe/data/music/urls.txt', 'w')
     urls = ["http://en.wikipedia.org/wiki/List_of_Hot_100_number-one_singles_of_%i_(U.S.)\n" % year for year in range(1959, 2012)]
     for url in urls:
@@ -29,9 +37,11 @@ def make_urls():
     urlfile.close()
         
 def get_text(cell):
+    """ get stripped text from a BeautifulSoup td object"""
     return ''.join([x.strip() + ' ' for x in cell.findAll(text=True)]).strip()
         
 def read_wiki():
+    """read the saved wikipedia pages to get song titles, artist, and first date they hit #1"""
     base_path = '/home/gabe/data/music/'
     songdata = []
     for year in range(1959, 2012):
@@ -60,10 +70,6 @@ def read_wiki():
                 songdata.append(song)
             except IndexError:
                 pass 
-                # last = len(songdata) - 1
-                # print "year: %i" % year
-                # print "IndexError at: "
-                # print row
 
     # remove duplicates
     checked = {}
@@ -80,7 +86,7 @@ def read_wiki():
     songs.sort(key=lambda x: x['date'])
     return songs
 
-def save_songs(songs, template="songtemplate.xml", ofile="/home/gabe/data/music/songs.xml"):
+def save_songs(songs, template="songtemplate.xml", ofile="songs.xml"):
     """ save songs to xml file """
     try:
         settings.configure(DEBUG=True,
@@ -94,16 +100,17 @@ def save_songs(songs, template="songtemplate.xml", ofile="/home/gabe/data/music/
     song_t_file = open(template)
     song_t = Template(song_t_file.read())
     song_c = Context({'songs': songs})
-    outfile = codecs.open(ofile,
+    # outfile = open(DATA_PATH + ofile, 'w')
+    outfile = codecs.open(DATA_PATH + ofile,
                           encoding='utf-8', mode='w')
     outfile.write(song_t.render(song_c))
     outfile.close()
-    print "Wrote %i songs to file" % len(songs)
+    print "Wrote %i songs to file %s" % (len(songs), ofile)
 
-def read_songs():
+def read_songs(filename='songs.xml'):
     """ read song data from xml file to a list of dictionaries """
-    songfile = open('/home/gabe/data/music/songs.xml')
-    soup = BS.BeautifulSoup(songfile.read())
+    songfile = open(DATA_PATH + filename)
+    soup = BS.BeautifulSoup(songfile.read(), convertEntities=BS.BeautifulSoup.HTML_ENTITIES)
     songsxml = soup.findAll('song')
     songs = []
     for song in songsxml:
@@ -118,6 +125,10 @@ def read_songs():
         sd['lyrics'] = get_text(song.lyrics)
         sd['found_title'] = get_text(song.found_title)
         sd['found_artist'] = get_text(song.found_artist)
+        try: 
+            sd['mr'] = float(get_text(song.mr))
+        except:
+            pass
         songs.append(sd)
     songfile.close()
     return songs
@@ -150,10 +161,14 @@ def save_err_songs(indexes, songs):
     save_songs(allbad, template=ERR_TEMPLATE, ofile=ERR_FILE)
 
 def get_search_results(song, options=1, sort=3, aside=False):
+    """ retrive the list of rows from the search results table for a given song lyrics"""
+
 
     # search lyricsfly by song title
     title = song['title']
     if aside and ('/' in title):
+        # if aside is true the title is both a and b sides of a single
+        # split on the slash to search for the a-side only
         title = title.split('/')[0].strip()
 
     postdata = {'keywords': title.encode('ascii', errors='ignore'), 'options':options, 'sort':sort}
@@ -189,6 +204,8 @@ def get_search_results(song, options=1, sort=3, aside=False):
     return rows
 
 def get_lyrics(song, rows):
+    """find the best match for title and artist among a list of rows from the search results table
+    then retrieve the lyrics from the url in that row"""
     best_artist = 1 
     best_title = 1
     best_index = -1
@@ -244,7 +261,7 @@ def get_lyrics(song, rows):
     return lyrics, found_title, found_artist
 
 def get_all_lyrics(songs):
-    # loop through all songs and search lyricsfly for lyrics
+    """loop through all songs and search lyricsfly for lyrics"""
     for songnum, song in enumerate(songs):
         print "Song %i getting lyrics for %s by %s" % (songnum, song['title'], song['artist'])
         try:
@@ -290,6 +307,7 @@ def find_errors(songs):
 
 
 def fix_empties(empties, songs, aside=False):
+    """retry search for lyrics to songs where none were found or there was an error"""
     for e in empties:
         songnum = e
         print "Song %i getting lyrics for %s by %s" % (songnum, songs[e]['title'], songs[e]['artist'])
@@ -319,6 +337,7 @@ def fix_empties(empties, songs, aside=False):
     save_songs(songs)
 
 def update_err_songs():
+    """load the manually entered lyrics from the error file into the main song file"""
     songs = read_songs()
     errs = read_err_songs()
     for e in errs:
@@ -331,3 +350,20 @@ def update_err_songs():
     save_err_songs(indexes, songs)
     return songs, bad
     
+def clean_lyrics(songs):
+    for s in songs:
+        # remove anything inside square or curly brackets
+        s['lyrics'] = re.sub('\[.+\]', '', s['lyrics'])
+        s['lyrics'] = re.sub('\{.+\}', '', s['lyrics'])
+        
+        # use straight quotes for apostrophes 
+        s['lyrics'] = s['lyrics'].replace('&#39;', "'")
+        s['lyrics'] = re.sub(ur"\u2019(?=[a-zA-Z])", "'", s['lyrics'])
+        
+        # remove copyright notice lines
+        s['lyrics'] = '\n'.join([l for l in s['lyrics'].split('\n') if not u'\xa9' in l])
+        s['lyrics'] = s['lyrics'].strip()
+    save_songs(songs, ofile='clean_songs.xml')
+    return songs
+
+# re.split("[^-'\w]+", sd[902]['lyrics'])

@@ -12,14 +12,17 @@
       {{ song.date|date:"F d, Y" }}
     </date>
     <found_title>
-      {{ song.found_title }}
+      {{ song.found_title|safe }}
     </found_title>
     <found_artist>
-      {{ soung.found_artist }}
+      {{ soung.found_artist|safe }}
     </found_artist>
     <lyrics>
-      {{ song.lyrics }}
+      {{ song.lyrics|safe }}
     </lyrics>
+    <mr>
+      {{ song.mr }}
+    </mr>
   </song>
   {% endfor %}
 </songs>
