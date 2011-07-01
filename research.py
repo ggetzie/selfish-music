@@ -110,7 +110,7 @@ def save_songs(songs, template="songtemplate.xml", ofile="songs.xml"):
 def read_songs(filename='songs.xml'):
     """ read song data from xml file to a list of dictionaries """
     songfile = open(DATA_PATH + filename)
-    soup = BS.BeautifulSoup(songfile.read(), convertEntities=BS.BeautifulSoup.HTML_ENTITIES)
+    soup = BS.BeautifulSoup(songfile.read(), convertEntities=BS.BeautifulSoup.ALL_ENTITIES)
     songsxml = soup.findAll('song')
     songs = []
     for song in songsxml:
@@ -132,6 +132,15 @@ def read_songs(filename='songs.xml'):
         songs.append(sd)
     songfile.close()
     return songs
+
+def search_songs(search, songs, field):
+    results = []
+    for song in songs:
+        if search.lower() in song[field].lower():
+            results.append(song)
+    for index, song in enumerate(results):
+        print "%i: %s by %s" % (index, song['title'], song['artist'])
+    return results
 
 def read_err_songs():
     """ read song data from xml file to a list of dictionaries """

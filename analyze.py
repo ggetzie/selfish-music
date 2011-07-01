@@ -1,6 +1,7 @@
 from collections import Counter
 from gdutils.stats import spearman
 
+import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
@@ -34,15 +35,25 @@ def get_days_mr(songs):
     mrs = [s['mr'] for s in songs_sorted]
     return days, mrs
 
+def histogram(mrs):
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    n, bins, patches = ax.hist(mrs, 50, normed=True, facecolor='green', alpha=0.75)
+    bincenters = 0.5*(bins[1:] + bins[:-1])
+    ax.set_xlabel('me-ratio')
+    ax.set_ylabel('probability')
+    plt.savefig('histo.svg')
+
 if __name__ == "__main__":
     songs = research.read_songs('clean_songs.xml')
     days, mrs = get_days_mr(songs)
-    plt.plot_date(days, mrs, fmt='bo', xdate=True, ydate=False, ms=1.5)
+    plt.plot_date(days, mrs, fmt='-', xdate=True, ydate=False, ms=1.5)
     plt.xlabel('year')
     plt.ylabel('me-ratio')
     plt.title('Self-Centeredness of Number 1 Songs: 1958-2011')
     sp = spearman(days, mrs)
-    plt.figtext(0.4, 0.01, "Spearman's rho = %.3f" % sp, multialignment='center')
+    plt.figtext(0.4, 0.01, "Spearman's correlation = %.3f" % sp, multialignment='center')
 
     fig = pylab.gcf()
     fig.set_size_inches(12,6)

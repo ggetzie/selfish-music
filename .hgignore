@@ -3,4 +3,6 @@ local_settings.py
 *.pyc
 */*.pyc
 *.orig
+*.svg
+*.jpg
 #*#
